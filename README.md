@@ -25,6 +25,7 @@ Project Files:
 * Thresholding Test Image: threshold-image.png
 * Warped View Test Image: warped.png
 * Thresholding Warped Test Images: threshold-wraped-1.png , threshold-wraped-2.png
+* Histogram Test Image: histogram.png
 * Sliding Window Test Image: sliding-window.png
 * Lane Finding Test Image: lane-find.png
 
@@ -163,4 +164,88 @@ The function is tested with 2 test images:
 
 ### Step 4: Line Finding
 
-The SLiding Window Fit algorithm is used to search for the lane lines in the threshold-warped images.
+The Sliding Window Fit algorithm is used to search for the lane lines in the threshold-warped images.
+
+First, a histogram of bright pixels along the x-axis is computed:
+
+![histogram](https://github.com/ongchinkiat/SDCND-Project4/raw/master/histogram.png "histogram")
+
+Dividing the image into halves, the left and right peak positions are used as the starting points of the Sliding Window search.
+
+The parameters used for the Sliding Window are:
+
+* number of sliding windows, nwindows = 9
+* width of the windows +/- margin, margin = 100
+* minimum number of pixels found to recenter window, minpix = 50
+
+With these parameters, we obtained the red pixels for the left lane search, and blue pixels for the right lane search:
+
+![sliding-window](https://github.com/ongchinkiat/SDCND-Project4/raw/master/sliding-window.png "sliding-window")
+
+We then do a second order polynomial fit on the 2 sets of lane pixels to get the 2 curves.
+
+```
+left_fit = np.polyfit(lefty, leftx, 2)
+right_fit = np.polyfit(righty, rightx, 2)
+```
+
+To help us estimate the radius of curvature of the lane, we apply  conversion factors (ym_per_pix, xm_per_pix) to convert from pixels to meters.
+
+```
+left_fit_cr = np.polyfit(lefty*ym_per_pix, leftx*xm_per_pix, 2)
+right_fit_cr = np.polyfit(righty*ym_per_pix, rightx*xm_per_pix, 2)
+```
+
+### Combining Steps 1 - 4
+
+Combining all the 4 steps, we verify the result using the test images.
+
+We also calculated the radius of curvature of the lane by taking the average of the radius of the left and right lanes.
+
+```
+left_curverad = ((1 + (2*left_fit_cr[0]*pipelined_img.shape[0]*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
+
+right_curverad = ((1 + (2*right_fit_cr[0]*pipelined_img.shape[0]*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
+
+curve = (left_curverad + right_curverad) / 2
+```
+
+The vehicle position within the lane is also estimated, by measuring the deviation of the center of the detected lane lines with the center of the image.
+
+```
+vehical_dev = (((left_bottom + right_bottom) / 2.0) - (pipelined_img.shape[1] / 2.0)) * xm_per_pix
+```
+
+
+![lane-find](https://github.com/ongchinkiat/SDCND-Project4/raw/master/lane-find.png "lane-find")
+
+## Pipeline Video
+
+The process_image() function is used to process the given project video.
+
+To speed up processing, we also implemented a previous_line_fit() function which uses the previously found lane lines as the starting point for the search.
+
+To make the search algorithm more robust, we keep a set of the previous frame parameters and use a counter "miss-frame" to help in our decision.
+
+```
+global prev_left_fit
+global prev_right_fit
+global prev_curve
+global prev_vehical_dev
+global miss_frame
+```
+
+For each new frame, we try to use the previous_line_fit() algorithm first. But if the result Vehicle Position deviates too much (> 0.1m) from the previous frame, we revert to the use of the sliding_window_fit() algorithm.
+
+If the result Vehicle Position deviates by more than 0.2m, we discard the result keep the previous result. But if we miss a consecutive 10 frames (miss_frame > 10), we don't use the previous result anymore, and stick to the result of the sliding_window_fit() algorithm.
+
+The resulting processed video is in the file: project_video_out.mp4
+
+## Discussion
+
+In this project, we have successfully implemented an advance lane finding algorithm to detect lane lines in a video stream.
+
+The algorithm implemented depends highly on the contrast between the lane markings and the road surface.
+
+The algorithm may not work well if there are other lane markings on the lane (e.g. speed signs, direction arrows, etc), or when we encounter steep or 90 degree turns, or when the car is changing lanes.
+ 
