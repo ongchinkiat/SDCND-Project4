@@ -239,6 +239,8 @@ For each new frame, we try to use the previous_line_fit() algorithm first. But i
 
 If the result Vehicle Position deviates by more than 0.2m, we discard the result keep the previous result. But if we miss a consecutive 10 frames (miss_frame > 10), we don't use the previous result anymore, and stick to the result of the sliding_window_fit() algorithm.
 
+The first video submission had a few cases where the lane lines are quite inaccurate. Some tuning was done on the threshold filtering parameters. I also tighten the margins for the lane fitting algorithms. After these tuning, the resulting video is much better.
+
 The resulting processed video is in the file: project_video_out.mp4
 
 ## Discussion
@@ -248,4 +250,3 @@ In this project, we have successfully implemented an advance lane finding algori
 The algorithm implemented depends highly on the contrast between the lane markings and the road surface.
 
 The algorithm may not work well if there are other lane markings on the lane (e.g. speed signs, direction arrows, etc), or when we encounter steep or 90 degree turns, or when the car is changing lanes.
- 
